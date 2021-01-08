@@ -52,6 +52,7 @@ struct SingleThread{
 
 	cmd_opcode execute(){
 		Instruction instruction =  program[(++pc)++];
+
 		if ( instruction.opcode==CMD_SUBI ){
 			registersFile.reg[instruction.dst_index] = 
 			registersFile.reg[instruction.src1_index] - instruction.src2_index_imm;
@@ -59,6 +60,7 @@ struct SingleThread{
 		}else if( instruction.opcode==CMD_ADDI  ){
 			registersFile.reg[instruction.dst_index] = 
 			registersFile.reg[instruction.src1_index] + instruction.src2_index_imm;
+
 		}else if( instruction.opcode==CMD_SUB ){
 			registersFile.reg[instruction.dst_index] = 
 			registersFile.reg[instruction.src1_index] - registersFile.reg[instruction.src2_index_imm];
@@ -68,14 +70,14 @@ struct SingleThread{
 			registersFile.reg[instruction.src1_index] + registersFile.reg[instruction.src2_index_imm];
 
 		}else if( instruction.opcode==CMD_LOAD) {
-			int32_t  source2 = (instruction.isSrc2Imm )? ( instruction.src2_index_imm):(registersFile.reg[instruction.src2_index_imm]);
+			int32_t  source2 = (instruction.isSrc2Imm )?( instruction.src2_index_imm):(registersFile.reg[instruction.src2_index_imm]);
 			uint32_t address = registersFile.reg[instruction.src1_index] + source2; 
 			SIM_MemDataRead( address, &(registersFile.reg[instruction.dst_index]));
 			assert( wait==0 );
 			++wait = (SIM_GetLoadLat());
 
 		}else if( instruction.opcode==CMD_STORE ){
-			int32_t  source2 = (instruction.isSrc2Imm )? ( instruction.src2_index_imm):(registersFile.reg[instruction.src2_index_imm]);
+			int32_t  source2 = (instruction.isSrc2Imm )?( instruction.src2_index_imm):(registersFile.reg[instruction.src2_index_imm]);
 			uint32_t address = registersFile.reg[instruction.dst_index] + source2;
 			SIM_MemDataWrite( address, registersFile.reg[instruction.dst_index]);
 			assert( wait==0 );
@@ -121,15 +123,17 @@ struct Core {
 			SingleThread& thread = threads[current];
 			isHalt = (thread.program[thread.pc].opcode==CMD_HALT);
 			isWait = ( thread.wait > 0);
-			assert( ((isHalt)&&(isWait))==false );
 			
-			countHalt = ( isHalt ) ? ( countHalt+1 ) : ( countHalt );
-			countWait = ( isWait ) ? ( countWait+1 ) : ( countWait );
+			assert( ((isHalt)&&(isWait))==false );
 			if( (type==BLOCKED) && (isWait || isHalt ) )  (current+1)%(threads.size());
-
+			
+			countHalt += (int)isHalt;
+			countWait += (int)isWait;
 		}
 
+	//fixme - not a sure assertion--------------------------------
 	assert( (countHalt!=threads.size())  ||  (countWait!=active) );
+	//fixme - not a sure assertion---------------------------------
 	current = (countHalt==threads.size()) ? (TOTAL_HALT) : (current);
 	current = (countWait==active) ? (IDLE) : (current);
 	return current;
@@ -138,9 +142,9 @@ struct Core {
 
 
 
-struct Functor{
+struct waitFunctor{
 		Core* core;
-		Functor(Core* core):core(core){}
+		waitFunctor(Core* core):core(core){}
 		void operator()(int cycles=1){
 			for(SingleThread i : core->threads) if( i.wait ) i.wait-=cycles;
 		}
@@ -155,7 +159,7 @@ void CORE_BlockedMT() {
 	RegisterFileBlocked.resize(SIM_GetThreadsNum());
 	
 
-	Functor decrementWait(&core);
+	waitFunctor decrementWait(&core);
 	int currentThread = 0;
 	while ( currentThread!=TOTAL_HALT ){
 	// performs another command every iteration 
@@ -165,10 +169,10 @@ void CORE_BlockedMT() {
 		cmd_opcode command = core.threads[currentThread].execute();
 		++blockedInstructions;
 
-		//FIXME
+		//FIXME------------------------------------------------------------------------------------------------
 		if( command==CMD_HALT ) RegisterFileBlocked[currentThread] = core.threads[currentThread].registersFile ;
 		assert( &RegisterFileBlocked[currentThread] != &core.threads[currentThread].registersFile );
-		//FIXME
+		//FIXME------------------------------------------------------------------------------------------------
 		bool contextSwitchPoissible = (command==CMD_HALT || command==CMD_LOAD || command==CMD_STORE);
 		
 		if( contextSwitchPoissible ){
@@ -197,7 +201,7 @@ void CORE_FinegrainedMT() {
 	Core core(Core::FINE_GRAINED);
 	RegisterFileFineGrained.resize(SIM_GetThreadsNum());
 
-	Functor decrementWait(&core);
+	waitFunctor decrementWait(&core);
 	int currentThread = 0;
 	while ( currentThread!=TOTAL_HALT ){
 		// performs another command every iteration 
@@ -207,10 +211,10 @@ void CORE_FinegrainedMT() {
 		cmd_opcode command = core.threads[currentThread].execute();
 		++fineGrainedInstructions;
 		
-		//FIXME
+		//FIXME----------------------------------------------------------------------------------------------------
 		if( command==CMD_HALT ) RegisterFileFineGrained[currentThread] = core.threads[currentThread].registersFile ;
 		assert( &RegisterFileFineGrained[currentThread] != &core.threads[currentThread].registersFile );
-		//FIXME
+		//FIXME----------------------------------------------------------------------------------------------------
 		int previous = currentThread;
 		currentThread = core.IncrementThread(currentThread);
 
@@ -235,10 +239,15 @@ double CORE_FinegrainedMT_CPI(){
 
 
 void CORE_BlockedMT_CTX(tcontext* context, int threadid) {
+	//fixme----------------------------------------------
 	context[threadid] = RegisterFileBlocked[threadid];
+	//fixme----------------------------------------------
 }
 
 
 void CORE_FinegrainedMT_CTX(tcontext* context, int threadid) {
+	//fixme----------------------------------------------
 	context[threadid] = RegisterFileFineGrained[threadid];
+	//fixme----------------------------------------------
+
 }
