@@ -113,22 +113,22 @@ struct Core {
 	 int IncrementThread(int current){
 		unsigned int countHalt=0, countWait=0, active=0;
 		for(SingleThread t : threads) active = (t.wait && t.program[t.pc].opcode==CMD_HALT ) ? (active) : (active+1) ;
-		bool isHalt = true;
-		bool isWait = true;
+		bool isHalted = true;
+		bool isWaiting = true;
 		
 
-		while( (countHalt!=threads.size())  &&  (countWait!=active)  &&  ((isHalt)||(isWait)) ){
+		while( (countHalt!=threads.size())  &&  (countWait!=active)  &&  ((isHalted)||(isWaiting)) ){
 			
 			if(type==FINE_GRAINED) (++current)%(threads.size());
 			SingleThread& thread = threads[current];
-			isHalt = (thread.program[thread.pc].opcode==CMD_HALT);
-			isWait = ( thread.wait > 0);
+			isHalted = (thread.program[thread.pc].opcode==CMD_HALT);
+			isWaiting = ( thread.wait > 0);
 			
-			assert( ((isHalt)&&(isWait))==false );
-			if( (type==BLOCKED) && (isWait || isHalt ) )  (current+1)%(threads.size());
+			assert( ((isHalted)&&(isWaiting))==false );
+			if( (type==BLOCKED) && (isWaiting || isHalted ) )  (current+1)%(threads.size());
 			
-			countHalt += (int)isHalt;
-			countWait += (int)isWait;
+			countHalt += (int)isHalted;
+			countWait += (int)isWaiting;
 		}
 
 	//fixme - not a sure assertion--------------------------------
