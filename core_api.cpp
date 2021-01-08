@@ -19,7 +19,7 @@ static int blockedCycles = 0;
 static int blockedInstructions = 0;
 static int fineGrainedInstructions = 0;
 
-static vector<tcontext> RegisterFileBlocked
+static vector<tcontext> RegisterFileBlocked;
 static vector<tcontext> RegFileFineGrained;
 
 
@@ -108,9 +108,9 @@ struct Core {
 void CORE_BlockedMT() {
 
 	Core core(Core::BLOCKED);
+	RegisterFileBlocked.resize(SIM_GetThreadsNum());
 	struct Functor{
 		Core* core;
-		RegisterFileBlocked.resize(SIM_GetThreadsNum());
 		Functor(Core* core):core(core){}
 		void operator()(int cycles){
 			for(SingleThread i : core->threads) if( i.wait ) i.wait-=cycles;
@@ -127,8 +127,9 @@ void CORE_BlockedMT() {
 		decrementWait(1);
 		cmd_opcode command = core.threads[currentThred].execute();
 		if( command==CMD_HALT ) RegisterFileBlocked[currentThred] = core.threads[currentThred].registersFile ;
+		bool contextSwitchPoissible = (command==CMD_HALT || command==CMD_LOAD || command==CMD_STORE);
 		
-		if( command==CMD_HALT || command==CMD_LOAD || command==CMD_STORE ){
+		if( contextSwitchPoissible ){
 			int previous = currentThred;
 			currentThred = core.IncrementThread(currentThred);
 
@@ -149,6 +150,8 @@ void CORE_BlockedMT() {
 }
 
 void CORE_FinegrainedMT() {
+	Core core(Core::FINE_GRAINED);
+	RegisterFileBlocked.resize(SIM_GetThreadsNum());
 }
 
 double CORE_BlockedMT_CPI(){
