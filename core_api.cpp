@@ -51,9 +51,42 @@ struct SingleThread{
 	}
 
 	cmd_opcode execute(){
-		//todo
-		return CMD_ADD;
-		//FIXME
+		Instruction instruction =  program[(++pc)++];
+		if ( instruction.opcode==CMD_SUBI ){
+			registersFile.reg[instruction.dst_index] = 
+			registersFile.reg[instruction.src1_index] - instruction.src2_index_imm;
+
+		}else if( instruction.opcode==CMD_ADDI  ){
+			registersFile.reg[instruction.dst_index] = 
+			registersFile.reg[instruction.src1_index] + instruction.src2_index_imm;
+		}else if( instruction.opcode==CMD_SUB ){
+			registersFile.reg[instruction.dst_index] = 
+			registersFile.reg[instruction.src1_index] - registersFile.reg[instruction.src2_index_imm];
+
+		}else if( instruction.opcode==CMD_ADD ){
+			registersFile.reg[instruction.dst_index] = 
+			registersFile.reg[instruction.src1_index] + registersFile.reg[instruction.src2_index_imm];
+
+		}else if( instruction.opcode==CMD_LOAD) {
+			int32_t  source2 = (instruction.isSrc2Imm )? ( instruction.src2_index_imm):(registersFile.reg[instruction.src2_index_imm]);
+			uint32_t address = registersFile.reg[instruction.src1_index] + source2; 
+			SIM_MemDataRead( address, &(registersFile.reg[instruction.dst_index]));
+			assert( wait==0 );
+			++wait = (SIM_GetLoadLat());
+
+		}else if( instruction.opcode==CMD_STORE ){
+			int32_t  source2 = (instruction.isSrc2Imm )? ( instruction.src2_index_imm):(registersFile.reg[instruction.src2_index_imm]);
+			uint32_t address = registersFile.reg[instruction.dst_index] + source2;
+			SIM_MemDataWrite( address, registersFile.reg[instruction.dst_index]);
+			assert( wait==0 );
+			++wait = SIM_GetStoreLat();
+
+		}else if( instruction.opcode==CMD_HALT ){
+			--pc;
+		
+		}else assert( instruction.opcode==CMD_NOP );
+
+		return instruction.opcode;
 	}
 };
 
@@ -65,12 +98,10 @@ struct Core {
 
 	mtType type;
 	vector<SingleThread> threads;
-	//vector<bool> isWait;
 
 	Core(mtType type) : type(type){
 		for (int i = 0; i < SIM_GetThreadsNum(); i++){
 			threads.push_back(SingleThread(i));
-			//isWait.push_back(false);
 		}
 	} 
 
@@ -79,7 +110,7 @@ struct Core {
 
 	 int IncrementThread(int current){
 		unsigned int countHalt=0, countWait=0, active=0;
-		for(SingleThread i : threads) active = (i.wait) ? (active) : (active+1) ;
+		for(SingleThread t : threads) active = (t.wait && t.program[t.pc].opcode==CMD_HALT ) ? (active) : (active+1) ;
 		bool isHalt = true;
 		bool isWait = true;
 		
@@ -110,7 +141,7 @@ struct Core {
 struct Functor{
 		Core* core;
 		Functor(Core* core):core(core){}
-		void operator()(int cycles){
+		void operator()(int cycles=1){
 			for(SingleThread i : core->threads) if( i.wait ) i.wait-=cycles;
 		}
 };
@@ -125,28 +156,33 @@ void CORE_BlockedMT() {
 	
 
 	Functor decrementWait(&core);
-	int currentThred = 0;
-	while ( currentThred!=TOTAL_HALT ){
+	int currentThread = 0;
+	while ( currentThread!=TOTAL_HALT ){
 	// performs another command every iteration 
 
 		++blockedCycles;
-		decrementWait(1);
-		cmd_opcode command = core.threads[currentThred].execute();
-		if( command==CMD_HALT ) RegisterFileBlocked[currentThred] = core.threads[currentThred].registersFile ;
+		decrementWait();
+		cmd_opcode command = core.threads[currentThread].execute();
+		++blockedInstructions;
+
+		//FIXME
+		if( command==CMD_HALT ) RegisterFileBlocked[currentThread] = core.threads[currentThread].registersFile ;
+		assert( &RegisterFileBlocked[currentThread] != &core.threads[currentThread].registersFile );
+		//FIXME
 		bool contextSwitchPoissible = (command==CMD_HALT || command==CMD_LOAD || command==CMD_STORE);
 		
 		if( contextSwitchPoissible ){
-			int previous = currentThred;
-			currentThred = core.IncrementThread(currentThred);
+			int previous = currentThread;
+			currentThread = core.IncrementThread(currentThread);
 
-			while (currentThred==IDLE){
+			while (currentThread==IDLE){
 				++blockedCycles;
-				decrementWait(1);
-				currentThred = core.IncrementThread(previous);
+				decrementWait();
+				currentThread = core.IncrementThread(previous);
 			}
 
 
-			if( (previous!=currentThred) && (currentThred!=TOTAL_HALT) ){
+			if( (previous!=currentThread) && (currentThread!=TOTAL_HALT) ){
 				int contextSwitchFine = SIM_GetSwitchCycles();
 				blockedCycles += contextSwitchFine;
 				decrementWait(contextSwitchFine);
@@ -155,39 +191,54 @@ void CORE_BlockedMT() {
 	}	
 }
 
+
+
 void CORE_FinegrainedMT() {
 	Core core(Core::FINE_GRAINED);
 	RegisterFileFineGrained.resize(SIM_GetThreadsNum());
 
 	Functor decrementWait(&core);
-	int currentThred = 0;
-	while ( currentThred!=TOTAL_HALT ){
+	int currentThread = 0;
+	while ( currentThread!=TOTAL_HALT ){
 		// performs another command every iteration 
 
-		++blockedCycles;
-		decrementWait(1);
-		cmd_opcode command = core.threads[currentThred].execute();
-		if( command==CMD_HALT ) RegisterFileFineGrained[currentThred] = core.threads[currentThred].registersFile ;
+		++fineGrainedCycles;
+		decrementWait();
+		cmd_opcode command = core.threads[currentThread].execute();
+		++fineGrainedInstructions;
 		
-		// todo
+		//FIXME
+		if( command==CMD_HALT ) RegisterFileFineGrained[currentThread] = core.threads[currentThread].registersFile ;
+		assert( &RegisterFileFineGrained[currentThread] != &core.threads[currentThread].registersFile );
+		//FIXME
+		int previous = currentThread;
+		currentThread = core.IncrementThread(currentThread);
 
+		while (currentThread==IDLE){
+				++fineGrainedCycles;
+				decrementWait();
+				currentThread = core.IncrementThread(previous);
+		}
 	}
 }
 
+
+
 double CORE_BlockedMT_CPI(){
-	//todo
-	return 0;
+	return (double)blockedCycles/blockedInstructions;
 }
+
 
 double CORE_FinegrainedMT_CPI(){
-	//todo
-	return 0;
+	return (double)fineGrainedCycles/fineGrainedInstructions;
 }
+
 
 void CORE_BlockedMT_CTX(tcontext* context, int threadid) {
-	//todo
+	context[threadid] = RegisterFileBlocked[threadid];
 }
 
+
 void CORE_FinegrainedMT_CTX(tcontext* context, int threadid) {
-	//todo
+	context[threadid] = RegisterFileFineGrained[threadid];
 }
