@@ -20,7 +20,10 @@ static int blockedInstructions = 0;
 static int fineGrainedInstructions = 0;
 
 static vector<tcontext> RegisterFileBlocked;
-static vector<tcontext> RegFileFineGrained;
+static vector<tcontext> RegisterFileFineGrained;
+
+
+
 
 
 
@@ -104,18 +107,21 @@ struct Core {
 
 
 
-
-void CORE_BlockedMT() {
-
-	Core core(Core::BLOCKED);
-	RegisterFileBlocked.resize(SIM_GetThreadsNum());
-	struct Functor{
+struct Functor{
 		Core* core;
 		Functor(Core* core):core(core){}
 		void operator()(int cycles){
 			for(SingleThread i : core->threads) if( i.wait ) i.wait-=cycles;
 		}
-	};
+};
+	
+
+
+
+void CORE_BlockedMT() {
+
+	Core core(Core::BLOCKED);
+	RegisterFileBlocked.resize(SIM_GetThreadsNum());
 	
 
 	Functor decrementWait(&core);
@@ -151,19 +157,37 @@ void CORE_BlockedMT() {
 
 void CORE_FinegrainedMT() {
 	Core core(Core::FINE_GRAINED);
-	RegisterFileBlocked.resize(SIM_GetThreadsNum());
+	RegisterFileFineGrained.resize(SIM_GetThreadsNum());
+
+	Functor decrementWait(&core);
+	int currentThred = 0;
+	while ( currentThred!=TOTAL_HALT ){
+		// performs another command every iteration 
+
+		++blockedCycles;
+		decrementWait(1);
+		cmd_opcode command = core.threads[currentThred].execute();
+		if( command==CMD_HALT ) RegisterFileFineGrained[currentThred] = core.threads[currentThred].registersFile ;
+		
+		// todo
+
+	}
 }
 
 double CORE_BlockedMT_CPI(){
+	//todo
 	return 0;
 }
 
 double CORE_FinegrainedMT_CPI(){
+	//todo
 	return 0;
 }
 
 void CORE_BlockedMT_CTX(tcontext* context, int threadid) {
+	//todo
 }
 
 void CORE_FinegrainedMT_CTX(tcontext* context, int threadid) {
+	//todo
 }
