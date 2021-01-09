@@ -112,20 +112,21 @@ struct Core {
 
 	 int IncrementThread(int current){
 		unsigned int countHalt=0, countWait=0, active=0;
-		for(SingleThread t : threads) active = (t.wait && t.program[t.pc].opcode==CMD_HALT ) ? (active) : (active+1) ;
+		for(SingleThread t : threads) active = (t.wait || t.program[t.pc].opcode==CMD_HALT ) ? (active) : (active+1) ;
+
 		bool isHalted = true;
 		bool isWaiting = true;
 		
 
-		while( (countHalt!=threads.size())  &&  (countWait!=active)  &&  ((isHalted)||(isWaiting)) ){
+		while( (countHalt!=threads.size())  &&  (countWait!=active)  &&  ((isHalted)||(isWaiting)) ){ //  <<<<<-------fixme--------------------------------
 			
-			if(type==FINE_GRAINED) (++current)%(threads.size());
+			if(type==FINE_GRAINED) current = (++current)%(threads.size());
 			SingleThread& thread = threads[current];
 			isHalted = (thread.program[thread.pc].opcode==CMD_HALT);
 			isWaiting = ( thread.wait > 0);
 			
 			assert( ((isHalted)&&(isWaiting))==false );
-			if( (type==BLOCKED) && (isWaiting || isHalted ) )  (current+1)%(threads.size());
+			if( (type==Core::BLOCKED) && (isWaiting || isHalted ) )  current = (++current)%(threads.size());
 			
 			countHalt += (int)isHalted;
 			countWait += (int)isWaiting;
@@ -135,7 +136,7 @@ struct Core {
 	assert( (countHalt!=threads.size())  ||  (countWait!=active) );
 	//fixme - not a sure assertion---------------------------------
 	current = (countHalt==threads.size()) ? (TOTAL_HALT) : (current);
-	current = (countWait==active) ? (IDLE) : (current);
+	current = (countWait==active && ) ? (IDLE) : (current);//  <<<<<-------fixme--------------------------------
 	return current;
 	}
 };
