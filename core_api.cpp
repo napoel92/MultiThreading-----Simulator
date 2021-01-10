@@ -26,7 +26,8 @@ static vector<tcontext> RegisterFileFineGrained;
 
 
 
-
+/* an auxiliary struct for representing one 
+   thread of some process in a curtain core  */
 struct SingleThread{
 
 	int id;
@@ -51,6 +52,8 @@ struct SingleThread{
 		} while (program[line].opcode != CMD_HALT);
 	}
 
+
+	// a method that simulates the execution unit of a processor 
 	cmd_opcode execute(){
 		Instruction instruction =  program[(++pc)];
 
@@ -90,11 +93,11 @@ struct SingleThread{
 };
 
 
-
+/* an auxiliary struct for representing the core of 
+   either a blocked or fineGrained processor  */
 struct Core {
 
 	enum mtType{BLOCKED, FINE_GRAINED};
-
 	mtType type;
 	vector<SingleThread> threads;
 
@@ -104,15 +107,12 @@ struct Core {
 		}
 	} 
 
-
-
-
+	// a method for finding the next thread to feed the core
 	 int IncrementThread(int current){
 		unsigned int countHalt=0, countWait=0, active=0;
 		//for(SingleThread t : threads) active = ( t.program[t.pc].opcode==CMD_HALT ) ? (active) : (active+1) ;
-
 		//change-Me
-		for( int i=0 ; i<threads.size() ; i++ ){
+		for( unsigned int i=0 ; i<threads.size() ; i++ ){
 			if ( (threads[i]).program[threads[i].pc].opcode!=CMD_HALT ){
 				++active;
 			}
@@ -123,23 +123,20 @@ struct Core {
 		bool isHalted = true;
 		bool isWaiting = true;
 		
-
 		while( (countHalt!=threads.size())  &&  (countWait!=active)  &&  ((isHalted)||(isWaiting)) ){
-			if(type==FINE_GRAINED) current = (++current)%(threads.size());
+			if(type==FINE_GRAINED) current = (current+1)%(threads.size());
 			SingleThread& thread = threads[current];
 			isHalted = (thread.program[thread.pc].opcode==CMD_HALT);
 			isWaiting = ( thread.wait > 0);
 			
 			assert( ((isHalted)&&(isWaiting))==false );
-			if( (type==Core::BLOCKED) && (isWaiting || isHalted ) )  current = (++current)%(threads.size());
+			if( (type==Core::BLOCKED) && (isWaiting || isHalted ) )  current = (current+1)%(threads.size());
 			
 			countHalt += (int)isHalted;
 			countWait += (int)isWaiting;
 		}
 
-	//fixme - not a sure assertion--------------------------------
 	assert( (countHalt!=threads.size())  ||  (countWait!=active) );
-	//fixme - not a sure assertion---------------------------------
 	current = (countHalt==threads.size() || active==0) ? (TOTAL_HALT) : (current);
 	current = (countWait==active && current!=TOTAL_HALT) ? (IDLE) : (current);
 	return current;
@@ -153,7 +150,7 @@ struct waitFunctor{//  <<<<<-------fixme--------------------------------
 	waitFunctor(Core* core):core(core){}
 	void operator()(int cycles=1){
 		//for(SingleThread i : core->threads) if( i.wait ) i.wait-=cycles;
-		for( int i=0 ; i<core->threads.size() ; ++i ){
+		for( unsigned int i=0 ; i<core->threads.size() ; ++i ){
 			if(core->threads[i].wait){
 				core->threads[i].wait -= cycles;
 			}
