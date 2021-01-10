@@ -112,14 +112,13 @@ struct Core {
 
 	 int IncrementThread(int current){
 		unsigned int countHalt=0, countWait=0, active=0;
-		for(SingleThread t : threads) active = (t.wait || t.program[t.pc].opcode==CMD_HALT ) ? (active) : (active+1) ;
+		for(SingleThread t : threads) active = ( t.program[t.pc].opcode==CMD_HALT ) ? (active) : (active+1) ;
 
 		bool isHalted = true;
 		bool isWaiting = true;
 		
 
-		while( (countHalt!=threads.size())  &&  (countWait!=active)  &&  ((isHalted)||(isWaiting)) ){ //  <<<<<-------fixme--------------------------------
-			
+		while( (countHalt!=threads.size())  &&  (countWait!=active)  &&  ((isHalted)||(isWaiting)) ){
 			if(type==FINE_GRAINED) current = (++current)%(threads.size());
 			SingleThread& thread = threads[current];
 			isHalted = (thread.program[thread.pc].opcode==CMD_HALT);
@@ -136,7 +135,7 @@ struct Core {
 	assert( (countHalt!=threads.size())  ||  (countWait!=active) );
 	//fixme - not a sure assertion---------------------------------
 	current = (countHalt==threads.size()) ? (TOTAL_HALT) : (current);
-	current = (countWait==active && ) ? (IDLE) : (current);//  <<<<<-------fixme--------------------------------
+	current = (countWait==active) ? (IDLE) : (current);
 	return current;
 	}
 };
@@ -183,7 +182,7 @@ void CORE_BlockedMT() {
 			while (currentThread==IDLE){
 				++blockedCycles;
 				decrementWait();
-				currentThread = core.IncrementThread(previous);
+				currentThread = core.IncrementThread(previous);//  <<<<<-------fixme--------------------------------
 			}
 
 
