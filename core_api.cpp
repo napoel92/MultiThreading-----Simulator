@@ -84,11 +84,7 @@ struct SingleThread{
 			assert( wait==0 );
 			++wait = SIM_GetStoreLat();
 
-		}else if( instruction.opcode==CMD_HALT ){
-			
-		
-		}else assert( instruction.opcode==CMD_NOP );
-
+		}
 		return instruction.opcode;
 	}
 };
@@ -144,8 +140,8 @@ struct Core {
 	//fixme - not a sure assertion--------------------------------
 	assert( (countHalt!=threads.size())  ||  (countWait!=active) );
 	//fixme - not a sure assertion---------------------------------
-	current = (countHalt==threads.size()) ? (TOTAL_HALT) : (current);
-	current = (countWait==active) ? (IDLE) : (current);
+	current = (countHalt==threads.size() || active==0) ? (TOTAL_HALT) : (current);
+	current = (countWait==active && current!=TOTAL_HALT) ? (IDLE) : (current);
 	return current;
 	}
 };
