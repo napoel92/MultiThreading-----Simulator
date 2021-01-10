@@ -51,7 +51,7 @@ struct SingleThread{
 	}
 
 	cmd_opcode execute(){
-		Instruction instruction =  program[(++pc)++];
+		Instruction instruction =  program[(++pc)];
 
 		if ( instruction.opcode==CMD_SUBI ){
 			registersFile.reg[instruction.dst_index] = 
@@ -84,7 +84,7 @@ struct SingleThread{
 			++wait = SIM_GetStoreLat();
 
 		}else if( instruction.opcode==CMD_HALT ){
-			--pc;
+			
 		
 		}else assert( instruction.opcode==CMD_NOP );
 
@@ -142,11 +142,15 @@ struct Core {
 
 
 
-struct waitFunctor{
+struct waitFunctor{//  <<<<<-------fixme--------------------------------
 		Core* core;
 		waitFunctor(Core* core):core(core){}
 		void operator()(int cycles=1){
-			for(SingleThread i : core->threads) if( i.wait ) i.wait-=cycles;
+			for(SingleThread i : core->threads) {/*if( i.wait ) i.wait-=cycles;*/
+				if(i.wait){
+					i.wait -= cycles;
+				}
+			}
 		}
 };
 	
@@ -181,8 +185,8 @@ void CORE_BlockedMT() {
 
 			while (currentThread==IDLE){
 				++blockedCycles;
-				decrementWait();
-				currentThread = core.IncrementThread(previous);//  <<<<<-------fixme--------------------------------
+				decrementWait();//  <<<<<-------fixme--------------------------------
+				currentThread = core.IncrementThread(previous);
 			}
 
 
