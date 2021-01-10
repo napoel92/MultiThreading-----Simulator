@@ -35,6 +35,7 @@ struct SingleThread{
 	int pc;
 	int wait;
 
+	//SingleThread(const SingleThread &) = delete;
 	explicit SingleThread(int id) : id(id),pc(NO_PC),wait(0) {
 
 		for(int i = 0; i< REGS_COUNT; i++){
@@ -112,7 +113,16 @@ struct Core {
 
 	 int IncrementThread(int current){
 		unsigned int countHalt=0, countWait=0, active=0;
-		for(SingleThread t : threads) active = ( t.program[t.pc].opcode==CMD_HALT ) ? (active) : (active+1) ;
+		//for(SingleThread t : threads) active = ( t.program[t.pc].opcode==CMD_HALT ) ? (active) : (active+1) ;
+
+		//change-Me
+		for( int i=0 ; i<threads.size() ; i++ ){
+			if ( (threads[i]).program[threads[i].pc].opcode!=CMD_HALT ){
+				++active;
+			}
+			
+		}
+		//change-Me
 
 		bool isHalted = true;
 		bool isWaiting = true;
@@ -143,15 +153,16 @@ struct Core {
 
 
 struct waitFunctor{//  <<<<<-------fixme--------------------------------
-		Core* core;
-		waitFunctor(Core* core):core(core){}
-		void operator()(int cycles=1){
-			for(SingleThread i : core->threads) {/*if( i.wait ) i.wait-=cycles;*/
-				if(i.wait){
-					i.wait -= cycles;
-				}
+	Core* core;
+	waitFunctor(Core* core):core(core){}
+	void operator()(int cycles=1){
+		//for(SingleThread i : core->threads) if( i.wait ) i.wait-=cycles;
+		for( int i=0 ; i<core->threads.size() ; ++i ){
+			if(core->threads[i].wait){
+				core->threads[i].wait -= cycles;
 			}
 		}
+	}
 };
 	
 
