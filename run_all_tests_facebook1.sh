@@ -6,6 +6,8 @@ echo
 
 for filename in tests/*.in; do
     test_num=`echo $filename | cut -d'.' -f1`
+	echo ${test_num}
+    echo
     ./sim_main ${filename} > ${test_num}.YoursOut
 done
 
