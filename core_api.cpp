@@ -7,6 +7,10 @@
 #include <vector>
 #include <cassert>
 
+//fixme
+#include <iostream>
+//fixme
+
 using std::vector;
 
 const int NO_PC = -1;
@@ -57,6 +61,13 @@ struct SingleThread{
 	cmd_opcode execute(){
 		Instruction instruction =  program[(++pc)];
 
+		
+			// //fixme
+			// std::cout<<"thread number:"<<this->id<<std::endl;
+			// std::cout<<"inst number:"<<pc<<std::endl;
+			// //fixme
+
+
 		if ( instruction.opcode==CMD_SUBI ){
 			registersFile.reg[instruction.dst_index] = 
 			registersFile.reg[instruction.src1_index] - instruction.src2_index_imm;
@@ -86,7 +97,6 @@ struct SingleThread{
 			SIM_MemDataWrite( address, registersFile.reg[instruction.dst_index]);
 			assert( wait==0 );
 			++wait = SIM_GetStoreLat();
-
 		}
 		return instruction.opcode;
 	}
@@ -145,16 +155,19 @@ struct Core {
 
 
 
-struct waitFunctor{//  <<<<<-------fixme--------------------------------
+struct waitFunctor{
 	Core* core;
 	waitFunctor(Core* core):core(core){}
 	void operator()(int cycles=1){
+		//changeME
 		//for(SingleThread i : core->threads) if( i.wait ) i.wait-=cycles;
 		for( unsigned int i=0 ; i<core->threads.size() ; ++i ){
 			if(core->threads[i].wait){
 				core->threads[i].wait -= cycles;
+				core->threads[i].wait = (core->threads[i].wait<0)?(0):(core->threads[i].wait);
 			}
 		}
+		//changeME
 	}
 };
 	
@@ -169,11 +182,16 @@ void CORE_BlockedMT() {
 
 	waitFunctor decrementWait(&core);
 	int currentThread = 0;
-	while ( currentThread!=TOTAL_HALT ){
-	// performs another command every iteration 
-
+	while ( currentThread!=TOTAL_HALT ){ // performs another command every iteration 
+	
 		++blockedCycles;
 		decrementWait();
+		// //fixme
+		// std::cout<<"core:"<<core.BLOCKED<<std::endl;
+		// if( currentThread==0 ){
+		// 	std::cout<<"found the mutta'fucka"<<std::endl;
+		// }
+		// //fixme
 		cmd_opcode command = core.threads[currentThread].execute();
 		++blockedInstructions;
 
