@@ -62,10 +62,12 @@ struct SingleThread{
 		Instruction instruction =  program[(++pc)];
 
 		
-			// //fixme
-			// std::cout<<"thread number:"<<this->id<<std::endl;
-			// std::cout<<"inst number:"<<pc<<std::endl;
-			// //fixme
+			 //fixme
+			 if(this->id==19){
+				std::cout<<"thread number:"<<this->id<<std::endl;
+				std::cout<<"inst number:"<<pc<<std::endl;
+			 }
+			 //fixme
 
 
 		if ( instruction.opcode==CMD_SUBI ){
